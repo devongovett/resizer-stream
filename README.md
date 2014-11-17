@@ -2,7 +2,8 @@
 
 A streaming image resizer, for Node and the browser. Uses [pica](https://github.com/nodeca/pica)
 to perform high quality image resizing, and supports options to resize proportionally, stretch,
-fit, etc.
+fit, etc. Handles multi-frame images (e.g. animated GIFs) properly as well, thanks to 
+[pixel-stream](https://github.com/devongovett/pixel-stream).
 
 ## Installation
 
