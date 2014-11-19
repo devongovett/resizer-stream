@@ -7,9 +7,13 @@ var PassThrough = require('stream').PassThrough;
 describe('resizer-stream', function() {
   function stream() {
     var s = fs.createReadStream(__dirname + '/trees.pixels');
-    s.width = 400;
-    s.height = 533;
-    s.colorSpace = 'rgb';
+    s.once('data', function() {
+      s.emit('format', {
+        width: 400,
+        height: 533,
+        colorSpace: 'rgb'
+      });
+    });
     return s;
   }
     
@@ -119,9 +123,6 @@ describe('resizer-stream', function() {
   
   it('should scale frames of different sizes using same scalefactor', function(done) {
     var s = new PassThrough;
-    s.width = 500;
-    s.height = 400;
-    s.colorSpace = 'rgb';
     
     s.pipe(resize({ width: 100 }))
      .pipe(concat(function(frames) {
@@ -136,6 +137,12 @@ describe('resizer-stream', function() {
        assert.equal(frames[1].pixels.length, 40 * 60 * 3);
        done();
      }));
+     
+     s.emit('format', {
+       width: 500,
+       height: 400,
+       colorSpace: 'rgb'
+     });
     
     s.emit('frame', { width: 500, height: 400 });
     s.write(new Buffer(500 * 400 * 3));
@@ -145,11 +152,7 @@ describe('resizer-stream', function() {
   
   it('should not convert back to cmyk', function(done) {
     // color-transform can't currently transform rgba -> cmyk, so just convert to rgb instead
-    var stream = new PassThrough;
-    stream.width = 620;
-    stream.height = 371;
-    stream.colorSpace = 'cmyk';
-    
+    var stream = new PassThrough;    
     stream
       .pipe(resize({ width: 300 }))
       .pipe(concat(function(frames) {
@@ -161,14 +164,17 @@ describe('resizer-stream', function() {
         done();
       }));
       
+    stream.emit('format', {
+      width: 620,
+      height: 371,
+      colorSpace: 'cmyk'
+    });
+      
     stream.end(new Buffer(620 * 371 * 4));
   });
   
   it('should not convert data already in rgba', function(done) {
     var stream = new PassThrough;
-    stream.width = 500;
-    stream.height = 400;
-    stream.colorSpace = 'rgba';
     
     stream
       .pipe(resize({ width: 300 }))
@@ -181,12 +187,22 @@ describe('resizer-stream', function() {
         done();
       }));
       
+    stream.emit('format', {
+      width: 500,
+      height: 400,
+      colorSpace: 'rgba'
+    });
+      
     stream.end(new Buffer(500 * 400 * 4));
   });
   
-  it('should error when given invalid options', function() {
-    assert.throws(function() {
-      stream().pipe(resize())
-    }, /Invalid resizing options/);
+  it('should error when given invalid options', function(done) {
+    stream()
+      .pipe(resize())
+      .on('error', function(err) {
+        assert(err instanceof Error);
+        assert(/Invalid resizing options/.test(err.message));
+        done();
+      });
   });
 });

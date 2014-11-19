@@ -7,13 +7,13 @@
     "test": "test"
   },
   "dependencies": {
-    "color-transform": "^1.0.0",
+    "color-transform": "^1.0.1",
     "pica": "^1.0.6",
-    "pixel-stream": "^1.0.2",
+    "pixel-stream": "^1.0.3",
     "typedarray-to-buffer": "^3.0.0"
   },
   "devDependencies": {
-    "concat-frames": "^1.0.0",
+    "concat-frames": "^1.0.1",
     "mocha": "^2.0.1"
   },
   "scripts": {

@@ -8,51 +8,48 @@ function ResizeStream(srcWidth, srcHeight, options) {
   if (!(this instanceof ResizeStream))
     return new ResizeStream(srcWidth, srcHeight, options);
   
-  PixelStream.call(this);
+  PixelStream.apply(this, arguments);
   
-  if (typeof srcWidth === 'object') {
-    options = srcWidth;
-    srcWidth = 0;
-    srcHeight = 0;
-  }
-  
-  this.srcWidth = srcWidth;
-  this.srcHeight = srcHeight;
-  this._computeSize(options);
-  
+  this._options = typeof srcWidth === 'object' ? srcWidth : options;
   this._buffers = [];
   this._len = 0;
   this._colorTransform = null;
   this._inverseColorTransform = null;
-  
-  this.once('format', function() {
-    this.srcWidth = this.width;
-    this.srcHeight = this.height;
-    this._computeSize(options);
-    
-    // if the color space isn't rgba, we need to convert to rgba
-    // first for pica, then convert back after the resize is done
-    if (this.colorSpace !== 'rgba') {
-      try {
-        this._colorTransform = ColorTransform.getTransformFunction(this.colorSpace, 'rgba');
-        
-        // we can't convert back to cmyk yet, and it's lossy anyway, so
-        // just get rid of the alpha channel and output rgb after resizing
-        if (this.colorSpace === 'cmyk')
-          this.colorSpace = 'rgb';
-          
-        this._inverseColorTransform = ColorTransform.getTransformFunction('rgba', this.colorSpace);
-      } catch (e) {
-        return this.emit('error', e);
-      }
-    }
-  });
 }
 
 util.inherits(ResizeStream, PixelStream);
 
-ResizeStream.prototype._computeSize = function(options) {
-  if (!options) options = {};
+ResizeStream.prototype._start = function(done) {
+  var format = this.format;
+  this.srcWidth = format.width;
+  this.srcHeight = format.height;
+  this._computeSize();
+  
+  // if the color space isn't rgba, we need to convert to rgba
+  // first for pica, then convert back after the resize is done
+  if (format.colorSpace !== 'rgba') {
+    try {
+      this._colorTransform = ColorTransform.getTransformFunction(format.colorSpace, 'rgba');
+      
+      // we can't convert back to cmyk yet, and it's lossy anyway, so
+      // just get rid of the alpha channel and output rgb after resizing
+      if (format.colorSpace === 'cmyk')
+        format.colorSpace = 'rgb';
+        
+      this._inverseColorTransform = ColorTransform.getTransformFunction('rgba', format.colorSpace);
+    } catch (e) {
+      return this.emit('error', e);
+    }
+  }
+  
+  // Update output format
+  format.width = this.destWidth;
+  format.height = this.destHeight;
+  done();
+};
+
+ResizeStream.prototype._computeSize = function() {
+  var options = this._options || {};
   var scale = 0;
   
   // scale proportionally to width
@@ -78,12 +75,12 @@ ResizeStream.prototype._computeSize = function(options) {
   
   // compute output width and height
   if (scale) {
-    this.width = this.srcWidth * scale | 0;
-    this.height = this.srcHeight * scale | 0;
+    this.destWidth = this.srcWidth * scale | 0;
+    this.destHeight = this.srcHeight * scale | 0;
     this.scale = scale;
   } else if (options.width && options.height) {
-    this.width = options.width;
-    this.height = options.height;
+    this.destWidth = options.width;
+    this.destHeight = options.height;
   } else {
     return this.emit('error', new Error('Invalid resizing options'));
   }
@@ -99,8 +96,8 @@ ResizeStream.prototype._startFrame = function(frame, done) {
     this._frameWidth = frame.width * this.scale | 0;
     this._frameHeight = frame.height * this.scale | 0;
   } else {
-    this._frameWidth = this.width;
-    this._frameHeight = this.height;
+    this._frameWidth = this.destWidth;
+    this._frameHeight = this.destHeight;
   }
   
   frame.width = this._frameWidth;
